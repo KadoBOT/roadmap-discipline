@@ -1,6 +1,6 @@
 ---
 name: task-start-roadmap-check
-description: Use at the start of any new, resumed, continued, follow-up, or redirected task. Triggers Phase 0: Initialization immediately to verify startup readiness.
+description: "Use at the start of any new, resumed, continued, follow-up, or redirected task. Triggers Phase 0: Initialization immediately to verify startup readiness."
 ---
 
 # Task-Start Roadmap Check

@@ -17,13 +17,13 @@ Run Phase 0: Initialization immediately upon starting a task. Do not inspect imp
 
 | Skill | Invoke when |
 | --- | --- |
-| [using-roadmap-discipline](using-roadmap-discipline/SKILL.md) | Any conversation or task that may touch phased roadmap work — the front door and routing guide |
-| [task-start-roadmap-check](task-start-roadmap-check/SKILL.md) | Starting, resuming, continuing, redirecting, or delegating a task |
-| [tracking-phased-work](tracking-phased-work/SKILL.md) | You need the end-to-end flow for ordered phased work |
-| [phase-ledger-maintenance](phase-ledger-maintenance/SKILL.md) | Creating, updating, or repairing the feature list `features.md` and readiness checklist |
-| [execution-locks](execution-locks/SKILL.md) | Deciding whether to continue, switch, defer, block, or resume across features, phases, or queues |
-| [subagent-roadmap-coordination](subagent-roadmap-coordination/SKILL.md) | Spawning or reviewing subagents for roadmap-backed work |
-| [roadmap-verification](roadmap-verification/SKILL.md) | About to claim a feature item, phase, or roadmap is complete |
+| [using-roadmap-discipline](../using-roadmap-discipline/SKILL.md) | Any conversation or task that may touch phased roadmap work — the front door and routing guide |
+| [task-start-roadmap-check](../task-start-roadmap-check/SKILL.md) | Starting, resuming, continuing, redirecting, or delegating a task |
+| [tracking-phased-work](../tracking-phased-work/SKILL.md) | You need the end-to-end flow for ordered phased work |
+| [phase-ledger-maintenance](../phase-ledger-maintenance/SKILL.md) | Creating, updating, or repairing the feature list `features.md` and readiness checklist |
+| [execution-locks](../execution-locks/SKILL.md) | Deciding whether to continue, switch, defer, block, or resume across features, phases, or queues |
+| [subagent-roadmap-coordination](../subagent-roadmap-coordination/SKILL.md) | Spawning or reviewing subagents for roadmap-backed work |
+| [roadmap-verification](../roadmap-verification/SKILL.md) | About to claim a feature item, phase, or roadmap is complete |
 
 When in doubt: `using-roadmap-discipline` → `task-start-roadmap-check` → follow what the feature list says.
 
@@ -68,7 +68,7 @@ Standard states: `not_started`, `active`, `blocked`, `passing`.
 
 ## Quick Start
 
-1. Read [using-roadmap-discipline/SKILL.md](using-roadmap-discipline/SKILL.md) for the routing flow.
+1. Read [using-roadmap-discipline/SKILL.md](../using-roadmap-discipline/SKILL.md) for the routing flow.
 2. Inspect the repository's `docs/roadmap-discipline/` directory for `readiness-checklist.md` and `features.md`.
 3. If they don't exist, create them immediately (Phase 0: Initialization).
 4. Run verification commands to transition states from `active` to `passing`.

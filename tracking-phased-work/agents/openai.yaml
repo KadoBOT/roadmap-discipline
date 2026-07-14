@@ -1,0 +1,4 @@
+interface:
+  display_name: "Tracking Phased Work"
+  short_description: "Route work through roadmap ledger skills"
+  default_prompt: "Use $tracking-phased-work before continuing phased roadmap work."

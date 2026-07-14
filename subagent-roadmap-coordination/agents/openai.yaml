@@ -1,0 +1,4 @@
+interface:
+  display_name: "Subagent Roadmap Coordination"
+  short_description: "Keep delegated roadmap work aligned"
+  default_prompt: "Use $subagent-roadmap-coordination before dispatching or reviewing roadmap workers, especially items marked for parallel subagents."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Using Roadmap Discipline"
+  short_description: "Front door for the roadmap-discipline skill bundle"
+  default_prompt: "Use $using-roadmap-discipline to route between the roadmap-discipline skills before phased work."

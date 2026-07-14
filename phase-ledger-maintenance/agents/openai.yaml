@@ -1,0 +1,4 @@
+interface:
+  display_name: "Phase Ledger Maintenance"
+  short_description: "Create and sync phase ledgers"
+  default_prompt: "Use $phase-ledger-maintenance to create or update the phase ledger, including parallel subagent markers where appropriate."

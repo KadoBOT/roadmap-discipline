@@ -1,0 +1,4 @@
+interface:
+  display_name: "Execution Locks"
+  short_description: "Prevent drift across roadmap work"
+  default_prompt: "Use $execution-locks to decide whether this roadmap work can switch context."

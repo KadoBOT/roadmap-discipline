@@ -1,0 +1,4 @@
+interface:
+  display_name: "Task-Start Roadmap Check"
+  short_description: "Check ledger state before task work"
+  default_prompt: "Use $task-start-roadmap-check before selecting the next task."

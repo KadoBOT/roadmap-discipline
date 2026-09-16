@@ -1,45 +1,52 @@
 ---
 name: roadmap-verification
-description: Use before claiming a feature, phase, or roadmap is complete, and after finishing task work before moving to another roadmap item.
+description: Use before marking a feature passing, completing a phase/roadmap, or moving to another roadmap item. Requires fresh verification evidence plus current Recovery State.
 ---
 
 # Roadmap Verification
 
-## Core Rule
+## Core rule
 
-No completion claim without executing the verification command and recording fresh evidence in `features.md`.
+No `passing` or completion claim without fresh verification, concrete evidence, feature-list consistency, and Recovery State describing the post-verification situation.
 
-## Verification Gate
+## Verification gate
 
-Before transitioning a feature's state from `active` to `passing`:
+Before `active -> passing`:
 
-1. **Reread Feature List:** Load `docs/roadmap-discipline/features.md` from disk.
-2. **Execute Command:** Run the exact verification command specified in the feature triple (e.g. `bun test <file>` or `curl ...`).
-3. **Verify Success:** Confirm the command returns success (exit code 0 or matches expected output/log).
-4. **Collect Evidence:** Copy the run summary, test log count, or Git commit hash.
-5. **Update State on Disk:**
-   - Update state to `passing`.
-   - Update `Evidence` field with the collected output/commit.
-   - For `[parallel: subagents recommended]` items, verify and update each feature separately.
-6. **Phase Check:** Check a global phase only after every feature-local item in that phase is `passing`.
-7. **Sync Diagram:** Update `## Phase Roadmap` styling to reflect the current phase correctly.
-8. **Update Notes:** Update `Resume Notes` with `Last completed`, `Next action`, and `Known blockers`.
+1. Reread `features.md` or run helper `resume`.
+2. Confirm the feature is active and allowed by execution locks.
+3. Run the exact verification in its feature triple.
+4. Record command/inspection, status, concrete result, and what it proves.
+5. If verification fails:
+   - do not mark `passing`;
+   - normally keep the feature `active`;
+   - checkpoint the failure, partial state, and exact diagnostic/repair next action.
+6. If verification succeeds and behavior criteria are satisfied:
+   - record Evidence;
+   - set feature `passing` and check it;
+   - select/update next allowed focus;
+   - checkpoint the post-verification state.
+7. Complete a phase only after all required features resolve.
+8. Validate roadmap state before advancing/switching.
 
-## Evidence Examples
+When the helper exists, use revision-checked checkpointing and then `check`.
 
-| State Claim | Required Evidence |
-| --- | --- |
-| `passing` | Output from the verification command (e.g. "5 tests passed"), CLI logs, or Git commit hash |
-| `blocked` | Reference to the open issue, failing external API, or project blocker |
-| `deferred` | Reference to user directive or project instruction permitting deferral |
+## Evidence
 
-## If Verification Fails
+Valid evidence includes test result/count, successful command summary, concrete artifact inspection, or a commit SHA only when the commit itself proves the required behavior.
 
-Do not mark the item `passing`. Set state to `active` or `blocked` as appropriate. Update resume notes with the failure details and next steps to debug.
+Remembered earlier output is not fresh evidence.
 
-## Red Flags
+## Failed verification is recovery state
 
-- "The feature is basically complete, so I'll check it off."
-- "Tests passed locally inside the IDE, so I don't need to run the verification command."
-- "I will record evidence later when the whole phase is done."
-- "I remember the verification command output from the last session."
+Record failures immediately. A fresh agent should know what was tried, why it failed, and what exact repair/diagnostic action is next.
+
+Do not turn an ordinary debuggable failure into `blocked`.
+
+## Revision conflicts
+
+If checkpointing reports a conflict, reread/reconcile newer state with your verification result and retry against the new revision. Never overwrite blindly.
+
+## Handoff safety
+
+Before ending a response after durable state changed or moving to another feature, ensure Recovery State contains the newest evidence and exact next action.

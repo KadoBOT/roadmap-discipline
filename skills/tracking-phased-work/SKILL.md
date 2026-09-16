@@ -1,55 +1,59 @@
 ---
 name: tracking-phased-work
-description: Use when tracking features, phases, and roadmap progress. Establishes the feature list as a harness primitive with a strict triple structure and verification gating.
+description: Use when tracking feature/phase progress. Defines the feature triple, legal states, verification gating, parallel markers, and write-through recovery checkpoints.
 ---
 
 # Tracking Phased Work
 
-## Purpose
+`docs/roadmap-discipline/features.md` is the system of record, not a memo.
 
-Keep roadmap-driven work ordered, resumable, and anchored to disk state instead of chat memory.
+## Feature primitive
 
-## The Feature List Primitive
+Every feature has:
 
-The feature list in `docs/roadmap-discipline/features.md` is not a human memo; it is the system of record. Every feature item must follow the **Triple Structure**:
+1. Behavior.
+2. Verification command/inspection.
+3. State.
+4. Evidence.
 
-1. **Behavior Description:** Exactly what the user can do or what the system does.
-2. **Verification Command:** The exact test or shell command used to verify the behavior.
-3. **Current State:** One of the four standard states:
-   - `not_started`: Item is in the backlog.
-   - `active`: Current item being worked on (maximum one active item per workstream/agent).
-   - `blocked`: Cannot proceed due to an external blocker (must list blocker in resume notes).
-   - `passing`: Verification command ran successfully, and evidence was recorded.
+Legal states:
 
-## Pass-State Gating (The Verification Gate)
+- `not_started` — backlog;
+- `active` — currently executing;
+- `blocked` — external dependency prevents progress;
+- `deferred` — intentionally postponed under user/project permission;
+- `passing` — verification succeeded and evidence is recorded.
 
-An agent **cannot** directly mark a feature as `passing` based on code edits alone. The transition from `active` to `passing` is gated by the verification command:
+A checked feature should be `passing` or an explicitly approved `deferred` item. A `passing` item without evidence is inconsistent.
 
-- You must execute the verification command in the shell.
-- It must pass successfully.
-- Record the output or git commit hash as **evidence** in the feature entry.
-- Once marked `passing`, the transition is locked.
+## Verification gate
 
-## Required Flow
+`active -> passing` requires fresh execution/inspection of the feature's exact verification, successful result, and recorded evidence. Code edits alone never prove `passing`.
 
-1. **Initialize/Start:** Use `task-start-roadmap-check` before selecting or executing work. Perform Phase 0: Initialization if needed.
-2. **Select/Lock:** Identify the active feature. If multiple features apply, use `execution-locks`.
-3. **Delegate (Optional):** If using subagents for parallel features, use `subagent-roadmap-coordination`.
-4. **Implement & Verify:** Write code, then run the verification command via `roadmap-verification`.
-5. **Update State:** Record the evidence and update state to `passing` using `phase-ledger-maintenance`.
+## Parallel work
 
-## Common Triggers
+Multiple active features are allowed only when every concurrent item is marked `[parallel: subagents recommended]` and write scopes do not overlap.
 
-- "continue", "resume", "next", "start the next item"
-- "quick fix", "also do this", "work on another item"
-- a resumed session with a roadmap, plan, or features file on disk
+Recovery State records:
 
-## Red Flags
+```text
+active_features = every active feature
+focus_feature = the current parent/agent focus, or None
+```
 
-- "I remember what comes next."
-- "I will inspect the code first and check the features after."
-- "The user did not mention the feature list."
-- "This is a new request, so the old roadmap reset."
-- "Known blockers is None, but I can skip the unchecked item."
+## Required flow
 
-The fix is always to run the task-start gate and follow the checked state on disk.
+1. Run `task-start-roadmap-check`.
+2. Repair/migrate Recovery State when needed.
+3. Resolve locks and select focus.
+4. Set selected feature(s) `active` and checkpoint before implementation.
+5. Implement within allowed scope.
+6. Checkpoint meaningful partial/decision/verification transitions.
+7. Run `roadmap-verification`.
+8. Record evidence/state and checkpoint the exact next action.
+
+## Checkpoint cadence
+
+Checkpoint after feature selection, coherent partial edits, durable decisions, changed approach, verification pass/fail, accepted subagent output, blocker/deferral/redirect, and completion/handoff.
+
+The next agent should never need the previous agent's conversation to understand why the repository is in its current state.

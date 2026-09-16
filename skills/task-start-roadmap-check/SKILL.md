@@ -1,51 +1,63 @@
 ---
 name: task-start-roadmap-check
-description: "Use at the start of any new, resumed, continued, follow-up, or redirected task. Triggers Phase 0: Initialization immediately to verify startup readiness."
+description: Use at the start of any new, resumed, continued, follow-up, redirected, or context-recovered task. Runs Phase 0 when needed and verifies that current work can be resumed from disk alone.
 ---
 
 # Task-Start Roadmap Check
 
 ## Gate
 
-Before doing any task work, check whether a roadmap or feature list already decides what comes next.
+Before implementation, establish what disk says is active and whether recovery state is sufficient.
 
-Only these actions are allowed before the gate completes:
+Allowed before the gate completes:
 
-- load required instructions and relevant skills;
-- locate `docs/roadmap-discipline/features.md` and `docs/roadmap-discipline/readiness-checklist.md`;
-- perform Phase 0: Initialization if they do not exist.
+- load project/skill instructions;
+- locate `docs/roadmap-discipline/readiness-checklist.md` and `features.md`;
+- initialize them when missing;
+- read Recovery State and its `reload` references;
+- inspect minimal Git metadata needed to reconcile recorded partial state.
 
-Do not inspect implementation files, select business feature work, run tests, edit files, spawn task workers, or answer with next steps before this gate completes.
+Do not broadly inspect implementation, select unrelated work, edit code, or dispatch workers until the gate completes.
 
-## Initialization Phase (Phase 0)
+## Phase 0: Initialization
 
-If `docs/roadmap-discipline/` does not exist or files are missing, run Phase 0: Initialization immediately:
+If roadmap files are missing:
 
-1. **Verify Environment:** Check if dependencies can be installed and the app can run (e.g. `bun install` or equivalent).
-2. **Verify Testing:** Run tests to confirm the test framework is active and baseline tests pass.
-3. **Create Readiness Checklist:** Create `docs/roadmap-discipline/readiness-checklist.md` covering the 4 conditions:
-   - *Can Start* (install and run commands documented and verified)
-   - *Can Test* (test execution command verified and passing)
-   - *Can See Progress* (pointer to `features.md`)
-   - *Can Pick Up Next Steps* (clear active/not_started items in `features.md`)
-4. **Create Feature List:** Create `docs/roadmap-discipline/features.md`. Define initialization tasks as Phase 0 features (F0.1, F0.2, etc.).
-5. **Git Checkpoint:** Make a clean Git commit checkpoint.
+1. verify install/start commands;
+2. verify the test/verification framework;
+3. create `readiness-checklist.md` covering Can Start, Can Test, Can See Progress, Can Pick Up Next Steps;
+4. create `features.md` with Phase 0 feature triples;
+5. make the next action explicit on disk;
+6. create Recovery State revision 1 before business implementation begins;
+7. create a clean Git checkpoint when project rules allow it.
 
-If the user creates a design plan or spec later in the session, update `features.md` with the new feature triples (F1.1, F1.2, etc.) at that time.
+## Existing roadmap recovery
 
-## Steps for Existing Roadmaps
+1. Read readiness + features from disk.
+2. If the helper exists, run `resume`; otherwise parse Recovery State manually.
+3. Confirm `active_features`, `focus_feature`, current phase, partial state, verification, blockers, and exact next action.
+4. Load only the canonical paths listed in `reload`, plus anything strictly necessary to validate them.
+5. Reconcile Git HEAD/dirty-state drift if the checkpoint reports or implies it.
+6. If Recovery State is missing, stale, contradictory, or too vague, repair it before implementation.
+7. Use `execution-locks` if feature selection is ambiguous or multiple active features exist.
+8. Briefly tell the user what state was recovered, then execute the recorded next action.
 
-If the roadmap files already exist:
+## Recovery quality gate
 
-1. **Read Roadmap State:** Read `docs/roadmap-discipline/readiness-checklist.md` and `docs/roadmap-discipline/features.md`.
-2. **Handle Locks:** If multiple features or phases are active, use `execution-locks` to decide where to work.
-3. **Identify Active Item:** Find the first unchecked, non-blocked feature item (State: `active` or first `not_started`).
-4. **Notify User:** Briefly tell the user what roadmap state you found before doing task work.
+A fresh agent must know from disk:
 
-## Explicit Redirects
+- goal;
+- phase and focus feature;
+- complete vs partial state;
+- decisions/constraints;
+- files/artifacts involved;
+- actual verification state;
+- blockers/unknowns;
+- exact next action and reason;
+- minimum context to reload.
 
-A generic request such as "continue", "next", "quick fix", "also do this", "work on another item", or an issue title is not an explicit redirect. An explicit redirect names the different feature, phase, or workstream and says it should supersede the current lock.
+If any answer requires chat memory, the gate is not complete.
 
-## Read-Only Work
+## Redirects
 
-Reviews, status checks, and investigation still run this gate. Update the feature list only if execution state changes.
+A generic “continue”, “quick fix”, or “also do this” does not supersede an active lock. An explicit redirect names the feature/phase/workstream to supersede current focus. Checkpoint unfinished state before switching.

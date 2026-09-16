@@ -1,51 +1,52 @@
 ---
 name: execution-locks
-description: Use when deciding whether to switch, continue, defer, block, or resume work across features, phases, or workstreams.
+description: Use when deciding whether to switch, continue, defer, block, or resume work across roadmap features, phases, workstreams, or parallel agents.
 ---
 
 # Execution Locks
 
-## Active Feature Lock
+## Active feature lock
 
-A feature item holds the active lock when its state is `active`.
+A feature in state `active` holds an execution lock.
 
-- While a feature is `active`, the agent is locked to it.
-- Do not edit files, run tests, or inspect code for any other feature or task until the active feature is resolved (either `passing`, `blocked`, or `deferred`).
-- You cannot start a new feature while one is `active`.
+- Resume active work before unrelated work.
+- Do not silently abandon active work.
+- One agent/parent has one `focus_feature`.
+- Multiple active features are allowed only for deliberate parallel execution where every concurrent feature is marked `[parallel: subagents recommended]` and scopes do not overlap.
 
-## Active Phase Lock
+Recovery State must mirror feature state:
 
-A phase holds the active lock when it is the current phase and contains feature items that are not `passing`.
+```text
+active_features == every feature whose State is active
+focus_feature == current parent/agent focus, or None
+```
 
-- Do not switch to a subsequent phase (e.g. from Phase 1 to Phase 2) or work on features belonging to another phase while the current phase has unchecked (non-`passing`) features.
-- A phase lock is released only when all features in that phase are `passing` (or explicitly marked `blocked`/`deferred` with approved reason in resume notes).
+## Active phase lock
 
-## Selection Algorithm
+The current phase remains locked while required features are unresolved. Do not advance simply because a later item is easier.
 
-1. Inspect `docs/roadmap-discipline/features.md` for any open locks.
-2. If there is a feature in the `active` state, resume that feature immediately.
-3. If no feature is `active`, find the first feature in the current phase with a state of `not_started` or `blocked`.
-4. Transition its state to `active` in `features.md` before writing any implementation code.
-5. If that item is marked `[parallel: subagents recommended]`, collect other unchecked same-phase items with the same marker as a batch for parallel delegation. Use `subagent-roadmap-coordination` before dispatch.
-6. The parallel marker does not release the execution lock. Each marked item remains locked until its own work and verification are complete.
+A phase may advance when its required features are `passing`, or are explicitly `blocked`/`deferred` under allowed rules with durable return conditions.
 
-## Deferral and Blocking
+## Selection algorithm
 
-Valid deferral or blocking requires:
+1. Read `features.md` + Recovery State.
+2. If active feature(s) exist, resume them.
+3. If parallel actives exist, keep/select one parent `focus_feature` and coordinate others through `subagent-roadmap-coordination`.
+4. If none are active, select the first allowed `not_started` feature in the current phase.
+5. Change it to `active`.
+6. Checkpoint active/focus state and exact next action before implementation.
+7. If selection is ambiguous, resolve it here; helpers must not guess across workstreams.
 
-- Setting the feature state to `blocked` or `deferred` in `features.md`.
-- In **Resume Notes**, document:
-  - *Known blockers:* The specific blocker, external dependency, or reason.
-  - *Next action:* Exactly when/how to return.
-- Do not use deferral to skip implementation, verification, or cleanup work when no blocker exists.
+## Blocking / deferral
 
-## Explicit Redirects
+`blocked` or `deferred` requires durable state containing the reason, current partial state, return condition/action, and relevant files/evidence.
 
-A direct user request is not automatically a redirect. A valid redirect names the different feature, phase, or workstream and explicitly instructs to supersede the current lock.
+A failed verification is not automatically a blocker. If diagnosis can continue, remain `active`.
 
-## Red Flags
+## Redirects
 
-- "The active feature has some bugs, so I will start the next one."
-- "I will work on a Phase 2 item because it's easier, even though Phase 1 has unfinished features."
-- "The feature is basically done, so I can start something else before running the verification command."
-- "Known blockers is None, but I can skip the active feature."
+A valid redirect explicitly names the new feature/phase/workstream and supersedes current focus. Checkpoint unfinished state before switching.
+
+## Concurrency
+
+Only one writer should update shared `features.md` at a time. With concurrent agents, use Recovery State `revision` and helper `--expected-revision`. A conflict requires reread/reconciliation, never force overwrite.

@@ -1,74 +1,139 @@
 ---
 name: roadmap-discipline
-description: Keep phased roadmap work ordered, resumable, and anchored to disk state instead of chat memory. Use at session start, when resuming or continuing work, before planning or delegating, when creating or updating the feature list, and before claiming any roadmap item is complete.
+description: Keep phased roadmap work ordered, resumable, and recoverable from disk without relying on chat context. Use at session start, after context loss/compaction, before planning or delegating, when maintaining features.md, and before claiming roadmap work complete.
 ---
 
 # Roadmap Discipline
 
-`.agents/skills/roadmap-discipline/` is a plugin bundle of skills for feature lists, startup readiness checklists, and roadmaps. Disk state is the source of truth — not chat memory, task plans, or parent checklists. All roadmap artifacts live in `docs/roadmap-discipline/`.
+Roadmap Discipline makes repository state, not conversation memory, the source of truth.
 
-## The Rule
-
-**Invoke a roadmap-discipline skill BEFORE selecting, executing, delegating, or completing roadmap work.**
-
-Run Phase 0: Initialization immediately upon starting a task. Do not inspect implementation files, pick business feature work, or claim completion until the initialization gate completes and the feature list is established.
-
-## Skill Catalog
-
-| Skill | Invoke when |
-| --- | --- |
-| [using-roadmap-discipline](../using-roadmap-discipline/SKILL.md) | Any conversation or task that may touch phased roadmap work — the front door and routing guide |
-| [task-start-roadmap-check](../task-start-roadmap-check/SKILL.md) | Starting, resuming, continuing, redirecting, or delegating a task |
-| [tracking-phased-work](../tracking-phased-work/SKILL.md) | You need the end-to-end flow for ordered phased work |
-| [phase-ledger-maintenance](../phase-ledger-maintenance/SKILL.md) | Creating, updating, or repairing the feature list `features.md` and readiness checklist |
-| [execution-locks](../execution-locks/SKILL.md) | Deciding whether to continue, switch, defer, block, or resume across features, phases, or queues |
-| [subagent-roadmap-coordination](../subagent-roadmap-coordination/SKILL.md) | Spawning or reviewing subagents for roadmap-backed work |
-| [roadmap-verification](../roadmap-verification/SKILL.md) | About to claim a feature item, phase, or roadmap is complete |
-
-When in doubt: `using-roadmap-discipline` → `task-start-roadmap-check` → follow what the feature list says.
-
-## Session Lifecycle
+Portable project state lives at:
 
 ```text
-1. task-start-roadmap-check     — find readiness checklist and features; verify environment
-2. execution-locks              — only if multiple phases, workstreams, or features apply
-3. do the work                  — stay within the active lock and assigned feature item
-4. roadmap-verification         — run verification command to get evidence before marking passing
-5. phase-ledger-maintenance     — check items, update states, and record evidence/resume notes
+docs/roadmap-discipline/readiness-checklist.md
+docs/roadmap-discipline/features.md
 ```
 
-## Core Artifacts
+`features.md` is both the human roadmap and the durable execution checkpoint.
 
-All files are stored in `docs/roadmap-discipline/`:
+## Core invariant
 
-**1. Startup Readiness Checklist** (`docs/roadmap-discipline/readiness-checklist.md`):
-Tracks the 4 conditions required for any agent session to operate the project: Can Start, Can Test, Can See Progress, Can Pick Up Next Steps.
+**Chat context is a cache. Disk state must be enough to resume.**
 
-**2. Feature List** (`docs/roadmap-discipline/features.md`):
-The single source of truth for the features. Every entry must have the triple: (behavior description, verification command, current state).
-Standard states: `not_started`, `active`, `blocked`, `passing`.
+Do not allow more than one meaningful state transition to exist only in chat memory. Checkpoint immediately after changes that a future agent would otherwise have to infer: feature selection, coherent partial edits, durable decisions, discoveries that change approach, verification results, accepted subagent output, blockers/deferrals/redirects, or completion.
 
-## Skill Priority
+A cold-start agent must be able to answer from disk:
 
-1. `task-start-roadmap-check` — gate before any task work, starting with Phase 0: Initialization.
-2. `execution-locks` — when choosing between features or phases.
-3. `phase-ledger-maintenance` — keep the features and readiness files up-to-date on disk.
-4. `subagent-roadmap-coordination` — when delegating parallel features to subagents.
-5. `roadmap-verification` — run verification command before any completion claim.
+- What phase and feature(s) are active?
+- What exactly is partial or intentionally unfinished?
+- What decisions/constraints must be preserved?
+- What files/artifacts are involved?
+- What verification ran and what did it prove/fail?
+- What blockers/unknowns remain?
+- What exact action happens next, and why?
+- What minimum canonical context must be reloaded?
 
-## Red Flags
+If any answer requires chat memory, checkpoint before doing more implementation work.
 
-| Thought | Reality |
-| --- | --- |
-| "This is just a quick fix." | Quick fixes are roadmap work too. Run the task-start gate. |
-| "I remember what comes next." | Read the feature list from disk. |
-| "I will inspect the code first." | The initialization gate comes before implementation files. |
-| "Tests passed, so the feature is complete." | No completion claim without executing the verification command and getting evidence. |
-| "I will update the feature list later." | Update before moving on. |
+## Policy vs mechanics
 
-## Quick Start
+The skills define policy. This skill also bundles an optional helper:
 
-1. Read [using-roadmap-discipline/SKILL.md](../using-roadmap-discipline/SKILL.md) for the routing flow.
-2. Inspect the repository's `docs/roadmap-discipline/` directory for `readiness-checklist.md` and `features.md`.
-3. If they don't exist, create them immediately (Phase 0: Initialization).
-4. Run verification commands to transition states from `active` to `passing`.
+```text
+scripts/roadmap.mjs
+```
+
+When Node or Bun is available, prefer:
+
+```bash
+node <this-skill>/scripts/roadmap.mjs resume --root <workspace>
+node <this-skill>/scripts/roadmap.mjs checkpoint --root <workspace> ...
+node <this-skill>/scripts/roadmap.mjs check --root <workspace>
+```
+
+The helper does not select work or replace the skills. It parses/writes Recovery State, detects concurrent writes and Git drift, and validates consistency. If unavailable, follow the same contract manually.
+
+## Recovery State v1
+
+Active `features.md` files should contain:
+
+````markdown
+## Recovery State
+
+```json
+{
+  "version": 1,
+  "revision": 1,
+  "phase": "Phase 1: Core persistent modeling",
+  "active_features": ["F1.1"],
+  "focus_feature": "F1.1",
+  "goal": "Implement the persistence behavior defined by F1.1.",
+  "done_when": "F1.1 verification succeeds and evidence is recorded.",
+  "last_completed": "Phase 0 initialization verified.",
+  "in_progress": "F1.1 selected; no implementation edits yet.",
+  "next": {
+    "action": "Open the F1.1 implementation surface and implement the first failing case.",
+    "reason": "F1.1 is the first unfinished feature in the current phase."
+  },
+  "files": [],
+  "repository": {
+    "branch": "feature/example",
+    "head": "0123456789ab",
+    "dirty": [],
+    "dirty_hash": "<sha256>"
+  },
+  "verification": {
+    "required": "bun test path/to/test",
+    "last_run": "",
+    "status": "not_run",
+    "detail": ""
+  },
+  "blockers": [],
+  "reload": ["docs/roadmap-discipline/features.md"]
+}
+```
+````
+
+Rules:
+
+- `revision` monotonically increases on each checkpoint.
+- `active_features` must equal every feature whose state is `active`.
+- `focus_feature` is the current parent/agent focus, or `None`.
+- Multiple active features are allowed only for intentional parallel work marked `[parallel: subagents recommended]` with non-overlapping scopes.
+- `next.action` must be executable, not “continue” or “finish task”.
+- `verification.required` mirrors the focus feature's verification command.
+- `verification.status` is `not_run`, `passed`, `failed`, or `unknown`.
+- `repository` is a checkpoint observation, not a claim that the tree must remain clean. On resume, reconcile drift before trusting partial-state notes.
+- `reload` lists the minimum canonical files needed to continue correctly.
+
+## Revision safety
+
+If more than one agent/process can update the roadmap, use optimistic concurrency:
+
+```bash
+node <this-skill>/scripts/roadmap.mjs checkpoint \
+  --root <workspace> \
+  --expected-revision <revision-you-read> \
+  ...
+```
+
+A conflict means another writer changed durable state. Reread, reconcile, and retry. Never overwrite blindly.
+
+## Skill routing
+
+Use `using-roadmap-discipline` as the front door. The normal lifecycle is:
+
+```text
+task-start-roadmap-check
+→ recover/checkpoint disk state
+→ execution-locks when selection is ambiguous
+→ subagent-roadmap-coordination when delegating
+→ implement within active scope
+→ checkpoint meaningful transitions
+→ roadmap-verification
+→ checkpoint the post-verification state
+```
+
+## Cold-start test
+
+Before ending a response after durable state changed, assume the conversation disappears immediately. A fresh agent should be able to run/read recovery state and execute the recorded next action without asking what happened earlier.

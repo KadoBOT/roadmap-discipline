@@ -1,107 +1,93 @@
 # Roadmap Discipline Skills
 
-A plugin bundle of agent skills designed to keep phased, roadmap-driven work ordered, resumable, and anchored to disk state instead of chat memory.
+A bundle of Agent Skills for keeping phased work ordered, verifiable, and recoverable from repository state instead of chat memory.
 
-These skills are compatible with the Vercel **Agent Skills** specification and can be installed into any compatible AI agent (such as Claude Code, Cursor, Windsurf, Roo Code, etc.) using `npx skills`.
+Install all eight skills:
 
----
-
-## Installation
-
-You can install all or any of these skills using the `skills` CLI:
-
-### 1. Install via `npx skills add` (Recommended)
-To add these skills to your current project, run:
 ```bash
 npx skills add KadoBOT/roadmap-discipline
 ```
 
-The CLI will fetch the repository, discover all **8 skills** defined under the `skills/` directory, and prompt you to choose which skills you want to install and which agents you want to install them to (e.g., local project configuration like `.agents/skills` or `.claude/skills`).
+Or install selected skills with `--skill`.
 
-- **Install specific skills:**
-  If you only want to install a subset of the skills, you can specify them with the `--skill` flag:
-  ```bash
-  npx skills add KadoBOT/roadmap-discipline --skill task-start-roadmap-check --skill roadmap-verification
-  ```
-- **Install globally:**
-  To make these skills available across all your local projects, add the `-g` flag:
-  ```bash
-  npx skills add -g KadoBOT/roadmap-discipline
-  ```
+## Architecture
 
-### 2. Run without installing (On-demand)
-You can instruct your agent to use a specific skill on-demand without installing it:
-```bash
-npx skills use KadoBOT/roadmap-discipline@task-start-roadmap-check
-```
+Roadmap Discipline separates policy from mechanics:
 
----
+- the **skills** define initialization, feature selection, locking, checkpoint cadence, delegation, and verification policy;
+- `docs/roadmap-discipline/features.md` remains the portable human-readable system of record;
+- `features.md` embeds a versioned `## Recovery State` JSON checkpoint for execution state that must survive context loss;
+- the main `roadmap-discipline` skill includes an optional zero-dependency helper at `scripts/roadmap.mjs`.
 
-## Repository Layout & npx skills Compatibility
+The helper does not replace the skills or Markdown. It makes the mechanical parts deterministic: `resume`, `checkpoint`, revision conflict detection, Git drift detection, and consistency checking.
 
-To ensure compatibility with the `npx skills` CLI, the skills are organized in a **Flat Layout** inside a dedicated [skills/](skills/) folder:
+The continuity target is simple:
+
+> If the conversation disappears after a meaningful state transition, a fresh agent can recover from disk, load only the recorded canonical context, and execute the exact next action without reconstructing intent from chat history.
+
+## Consuming-project artifacts
+
+Every project using the discipline stores state under:
 
 ```text
-roadmap-discipline/
-├── README.md                              # This file
-├── docs/roadmap-discipline/               # Where the project's roadmap state is stored
-│   ├── readiness-checklist.md
-│   └── features.md
-└── skills/                                # Scanned by the skills CLI
-    ├── roadmap-discipline/                # Overview & main routing skill
-    │   └── SKILL.md
-    ├── using-roadmap-discipline/          # Setup and general usage routing
-    │   └── SKILL.md
-    ├── task-start-roadmap-check/          # Gate run at session startup
-    │   └── SKILL.md
-    ├── tracking-phased-work/              # Feature list & verification rules
-    │   └── SKILL.md
-    ├── phase-ledger-maintenance/          # Creating/updating features.md
-    │   └── SKILL.md
-    ├── execution-locks/                   # Concurrency/priority lock manager
-    │   └── SKILL.md
-    ├── subagent-roadmap-coordination/    # Subagent coordination rules
-    │   └── SKILL.md
-    └── roadmap-verification/              # Verification & evidence-gathering gate
-        └── SKILL.md
+docs/roadmap-discipline/readiness-checklist.md
+docs/roadmap-discipline/features.md
 ```
 
-> [!NOTE]
-> Having a `SKILL.md` at the root of the repository causes the `npx skills` CLI to treat the repository as a single flat skill and shadow all nested subdirectory skills. To resolve this and make all 8 skills discoverable, the main `roadmap-discipline` skill has been placed inside [skills/roadmap-discipline/SKILL.md](skills/roadmap-discipline/SKILL.md).
+`readiness-checklist.md` proves a fresh session can start, test, see progress, and pick up the next step.
 
----
+`features.md` contains feature triples:
 
-## Skill Catalog
+1. **Behavior** — what the system/user can do.
+2. **Verification** — the exact command or inspection that proves it.
+3. **State** — `not_started`, `active`, `blocked`, `deferred`, or `passing`.
+4. **Evidence** — concrete evidence for `passing`, blocker/defer evidence when applicable.
 
-The bundle includes the following skills:
+It also contains `## Recovery State`, which records the current phase, all active feature IDs, the parent/focus feature, partial state, exact next action and reason, files involved, Git snapshot/fingerprint, verification status, blockers, and minimum context to reload.
 
-| Skill | Folder | Purpose / When to Invoke |
-| --- | --- | --- |
-| **roadmap-discipline** | [skills/roadmap-discipline/](skills/roadmap-discipline/) | The main skill containing an overview of the discipline. |
-| **using-roadmap-discipline** | [skills/using-roadmap-discipline/](skills/using-roadmap-discipline/) | The entry point and routing guide to find the other skills. |
-| **task-start-roadmap-check** | [skills/task-start-roadmap-check/](skills/task-start-roadmap-check/) | Run immediately when starting, resuming, or delegating a task to check the active roadmap phase/item. |
-| **tracking-phased-work** | [skills/tracking-phased-work/](skills/tracking-phased-work/) | Defines the structure of the feature list and state transitions. |
-| **phase-ledger-maintenance** | [skills/phase-ledger-maintenance/](skills/phase-ledger-maintenance/) | Guide for creating or updating `features.md` and `readiness-checklist.md` on disk. |
-| **execution-locks** | [skills/execution-locks/](skills/execution-locks/) | Used to manage locks when switching workstreams or resuming features. |
-| **subagent-roadmap-coordination** | [skills/subagent-roadmap-coordination/](skills/subagent-roadmap-coordination/) | Establishes communication protocols and rules when delegating tasks to subagents. |
-| **roadmap-verification** | [skills/roadmap-verification/](skills/roadmap-verification/) | Invoked before marking a feature or phase complete, ensuring verification commands are run. |
+## Optional recovery helper
 
----
+When the main skill is installed, resolve its installed directory and run:
 
-## Quick Start & Session Lifecycle
+```bash
+node <roadmap-discipline-skill>/scripts/roadmap.mjs resume --root <workspace>
+node <roadmap-discipline-skill>/scripts/roadmap.mjs checkpoint --root <workspace> ...
+node <roadmap-discipline-skill>/scripts/roadmap.mjs check --root <workspace>
+```
 
-The discipline relies on a structured lifecycle that connects disk state to your active workspace:
+The same script runs under Bun.
 
-1. **Start the session:** An agent must run `task-start-roadmap-check` immediately upon starting a task. This enforces **Phase 0: Initialization** to create or verify the existence of:
-   - `docs/roadmap-discipline/readiness-checklist.md`
-   - `docs/roadmap-discipline/features.md`
-2. **Consult execution locks:** If multiple features or phases are active, run `execution-locks` to acquire the correct lock.
-3. **Execute work:** Code is written and tested within the bounds of the active feature and phase.
-4. **Run verification:** Before completing work, run `roadmap-verification` to run the feature's verification command and record evidence.
-5. **Update the ledger:** Run `phase-ledger-maintenance` to update feature statuses and log verification evidence in `features.md`.
+`resume` emits a compact cold-start packet and reports Git state drift.
 
----
+`checkpoint` writes the structured state, increments `revision`, and supports `--expected-revision` optimistic concurrency.
+
+`check` rejects contradictions such as active-state mismatches, passing items without evidence, stale focus features, invalid reload references, vague next actions, or completion claims inconsistent with feature state.
+
+Legacy `features.md` files remain readable and produce a migration warning until they are next activated and checkpointed.
+
+Run the bundled self-test with:
+
+```bash
+node <roadmap-discipline-skill>/scripts/roadmap.self-test.mjs
+```
+
+## Skill catalog
+
+| Skill | Purpose |
+| --- | --- |
+| `roadmap-discipline` | Overview, continuity invariant, Recovery State contract, helper usage |
+| `using-roadmap-discipline` | Front door and routing guide |
+| `task-start-roadmap-check` | Phase 0/session-start and cold-start recovery gate |
+| `tracking-phased-work` | Feature triples, states, transitions, checkpoint cadence |
+| `phase-ledger-maintenance` | Creates/repairs roadmap files and Recovery State |
+| `execution-locks` | Chooses allowed feature/phase/workstream and prevents unsafe switching |
+| `subagent-roadmap-coordination` | Parallel/delegated work and checkpoint-safe handoffs |
+| `roadmap-verification` | Fresh evidence gate before `passing` or phase completion |
+
+## Repository layout
+
+The main skill intentionally lives under `skills/roadmap-discipline/`. A root `SKILL.md` would cause `npx skills` to treat the repository as one flat skill and shadow the other skills.
 
 ## License
 
-This project is open-source and licensed under the MIT License.
+MIT.

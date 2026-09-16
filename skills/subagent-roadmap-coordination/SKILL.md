@@ -1,43 +1,57 @@
 ---
 name: subagent-roadmap-coordination
-description: Use when spawning or reviewing subagents for roadmap-backed feature implementation or verification.
+description: Use when spawning or reviewing subagents for roadmap-backed implementation or verification. Defines parallel scope, shared-roadmap write ownership, and checkpoint-safe handoffs.
 ---
 
 # Subagent Roadmap Coordination
 
-## Parent Responsibilities
+## Parent responsibilities
 
-Run the task-start gate before dispatch. The parent agent owns roadmap selection, active feature locking, and feature list updates unless it explicitly delegates a single feature update to one worker.
+Run the task-start gate and resolve execution locks before dispatch.
 
-Do not dispatch a subagent to choose the next task. Dispatch only after the active feature and verification command are known.
+The parent owns roadmap selection, focus/active feature state, shared `features.md` consistency, and acceptance/rejection of worker decisions/evidence.
 
-When unchecked same-phase features are marked `[parallel: subagents recommended]`, prefer dispatching them to separate subagents when subagent tools are available and their write scopes do not overlap. The marker is a recommendation, not a lock release: keep the same verification and parent review requirements.
+Do not ask workers to choose the next roadmap feature.
 
-## Worker Prompt Requirements
+## Parallel eligibility
 
-Every roadmap worker prompt must include:
+Parallelize only features marked `[parallel: subagents recommended]` with non-overlapping write scopes or read-only scopes.
 
-- active feature list path (`docs/roadmap-discipline/features.md`);
-- current phase and feature ID (e.g. `F1.2`);
-- exact assigned behavior description and verification command;
-- allowed write scope (directories/files);
-- instruction not to switch features or tasks;
-- required verification execution and expected evidence;
-- required final summary format.
+Parallel execution may produce multiple `active` features. Recovery State must list all and retain one parent `focus_feature`.
 
-## Final Summary Format
+## Worker prompt
 
-Ask workers to return:
+Include:
 
-- assigned feature status (`passing`, `blocked`, `deferred`);
-- files changed;
-- verification command run and its output/result;
-- blockers or follow-up;
-- recommended feature list update.
+- feature-list path;
+- observed Recovery State revision;
+- current phase and exact feature ID;
+- behavior + verification command;
+- allowed read/write scope;
+- relevant canonical `reload` paths;
+- partial-state facts to preserve;
+- instruction not to switch feature/phase/workstream or revert other agents;
+- required verification;
+- return format below.
 
-## Review After Return
+## Worker return format
 
-1. Read the worker summary.
-2. Inspect changed files or artifacts.
-3. Run the verification command locally to confirm success.
-4. Use `roadmap-verification` before marking the feature `passing` and checking it off.
+Require:
+
+- status: `passing`, `active/partial`, `blocked`, or `deferred`;
+- files/artifacts changed and what changed;
+- verification command/inspection and exact result;
+- durable decisions/discoveries;
+- blockers/unknowns;
+- exact recommended next action + reason;
+- unexpected changes outside assigned scope.
+
+The return should be directly translatable into Recovery State without reconstructing worker chat.
+
+## Shared roadmap writes
+
+Default: workers do not edit `features.md`. Parent reviews and checkpoints accepted state.
+
+Delegate roadmap editing only when exactly one worker is sole writer. If helper exists, require `--expected-revision <observed revision>`. Revision conflict returns to parent reconciliation.
+
+Do not let several accepted worker results accumulate only in parent conversation memory; checkpoint accepted state promptly.

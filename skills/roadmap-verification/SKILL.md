@@ -13,7 +13,7 @@ No `passing` or completion claim without fresh verification, concrete evidence, 
 
 Before `active -> passing`:
 
-1. Reread `features.md` or run helper `resume`.
+1. Reread the index and relevant ledger or run helper `resume`.
 2. Confirm the feature is active and allowed by execution locks.
 3. Run the exact verification in its feature triple.
 4. Record command/inspection, status, concrete result, and what it proves.

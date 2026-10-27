@@ -11,10 +11,11 @@ Portable project state lives at:
 
 ```text
 docs/roadmap-discipline/readiness-checklist.md
-docs/roadmap-discipline/features.md
+docs/roadmap-discipline/features.md          # index and current recovery checkpoint
+docs/roadmap-discipline/phases/*.md          # feature ledgers
 ```
 
-`features.md` is both the human roadmap and the durable execution checkpoint.
+`features.md` is a compact index and current execution checkpoint. Linked phase ledgers hold feature details and evidence. Existing single-file roadmaps remain supported. See `phase-ledger-maintenance` for the format and migration.
 
 ## Core invariant
 
@@ -51,11 +52,11 @@ node <this-skill>/scripts/roadmap.mjs checkpoint --root <workspace> ...
 node <this-skill>/scripts/roadmap.mjs check --root <workspace>
 ```
 
-The helper does not select work or replace the skills. It parses/writes Recovery State, detects concurrent writes and Git drift, and validates consistency. If unavailable, follow the same contract manually.
+The helper does not select work or replace the skills. It reads linked ledgers, writes Recovery State, checks revisions and Git drift, and validates consistency. Revision checks do not serialize concurrent writers. If unavailable, follow the same contract manually.
 
 ## Recovery State v1
 
-Active `features.md` files should contain:
+The `features.md` index of an active roadmap should contain this section (feature entries may live in linked phase ledgers):
 
 ````markdown
 ## Recovery State
@@ -89,7 +90,7 @@ Active `features.md` files should contain:
     "detail": ""
   },
   "blockers": [],
-  "reload": ["docs/roadmap-discipline/features.md"]
+  "reload": ["docs/roadmap-discipline/features.md", "docs/roadmap-discipline/phases/phase-1.md"]
 }
 ```
 ````
@@ -104,11 +105,11 @@ Rules:
 - `verification.required` mirrors the focus feature's verification command.
 - `verification.status` is `not_run`, `passed`, `failed`, or `unknown`.
 - `repository` is a checkpoint observation, not a claim that the tree must remain clean. On resume, reconcile drift before trusting partial-state notes.
-- `reload` lists the minimum canonical files needed to continue correctly.
+- `reload` lists the minimum canonical files needed to continue correctly: the index and the focus feature's ledger. `checkpoint` adds the focus ledger when it is missing; pass `--reload` to set the list explicitly.
 
 ## Revision safety
 
-If more than one agent/process can update the roadmap, use optimistic concurrency:
+Use one roadmap writer at a time. Before a write, check the revision you read:
 
 ```bash
 node <this-skill>/scripts/roadmap.mjs checkpoint \
@@ -117,7 +118,7 @@ node <this-skill>/scripts/roadmap.mjs checkpoint \
   ...
 ```
 
-A conflict means another writer changed durable state. Reread, reconcile, and retry. Never overwrite blindly.
+A conflict means the checkpoint changed since it was read. Reread, reconcile, and retry. This check is not an atomic lock; do not run concurrent writers.
 
 ## Skill routing
 

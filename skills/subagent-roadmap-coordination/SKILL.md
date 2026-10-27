@@ -9,7 +9,7 @@ description: Use when spawning or reviewing subagents for roadmap-backed impleme
 
 Run the task-start gate and resolve execution locks before dispatch.
 
-The parent owns roadmap selection, focus/active feature state, shared `features.md` consistency, and acceptance/rejection of worker decisions/evidence.
+The parent owns roadmap selection, focus/active feature state, shared index and ledger consistency, and acceptance/rejection of worker decisions/evidence.
 
 Do not ask workers to choose the next roadmap feature.
 
@@ -23,7 +23,7 @@ Parallel execution may produce multiple `active` features. Recovery State must l
 
 Include:
 
-- feature-list path;
+- index and relevant ledger paths;
 - observed Recovery State revision;
 - current phase and exact feature ID;
 - behavior + verification command;
@@ -50,8 +50,8 @@ The return should be directly translatable into Recovery State without reconstru
 
 ## Shared roadmap writes
 
-Default: workers do not edit `features.md`. Parent reviews and checkpoints accepted state.
+Default: workers do not edit the index or shared ledgers. Parent reviews and checkpoints accepted state.
 
-Delegate roadmap editing only when exactly one worker is sole writer. If helper exists, require `--expected-revision <observed revision>`. Revision conflict returns to parent reconciliation.
+Delegate roadmap editing only when exactly one worker is sole writer. If helper exists, require `--expected-revision <observed revision>` to detect stale state; it is not a lock. Revision conflict returns to parent reconciliation.
 
 Do not let several accepted worker results accumulate only in parent conversation memory; checkpoint accepted state promptly.

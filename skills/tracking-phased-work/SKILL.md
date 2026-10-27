@@ -5,7 +5,7 @@ description: Use when tracking feature/phase progress. Defines the feature tripl
 
 # Tracking Phased Work
 
-`docs/roadmap-discipline/features.md` is the system of record, not a memo.
+`docs/roadmap-discipline/features.md` and its linked phase ledgers are the system of record. Keep the index and current checkpoint concise; place feature details and evidence in the appropriate ledger.
 
 ## Feature primitive
 

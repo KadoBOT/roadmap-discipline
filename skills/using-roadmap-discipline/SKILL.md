@@ -18,7 +18,7 @@ Recovery order:
 ```text
 readiness-checklist.md
 → features.md
-→ Recovery State
+→ Recovery State and relevant linked ledgers
 → minimum reload context
 → minimal Git-state reconciliation
 → exact next action

@@ -29,7 +29,7 @@ A phase may advance when its required features are `passing`, or are explicitly 
 
 ## Selection algorithm
 
-1. Read `features.md` + Recovery State.
+1. Read the index, Recovery State, and relevant linked phase ledgers.
 2. If active feature(s) exist, resume them.
 3. If parallel actives exist, keep/select one parent `focus_feature` and coordinate others through `subagent-roadmap-coordination`.
 4. If none are active, select the first allowed `not_started` feature in the current phase.
@@ -49,4 +49,4 @@ A valid redirect explicitly names the new feature/phase/workstream and supersede
 
 ## Concurrency
 
-Only one writer should update shared `features.md` at a time. With concurrent agents, use Recovery State `revision` and helper `--expected-revision`. A conflict requires reread/reconciliation, never force overwrite.
+Only one writer may update the index and shared ledgers at a time. Use `--expected-revision` to detect stale checkpoints, not as a lock. A conflict requires reread and reconciliation, never force overwrite.

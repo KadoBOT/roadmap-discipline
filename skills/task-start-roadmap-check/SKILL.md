@@ -12,7 +12,7 @@ Before implementation, establish what disk says is active and whether recovery s
 Allowed before the gate completes:
 
 - load project/skill instructions;
-- locate `docs/roadmap-discipline/readiness-checklist.md` and `features.md`;
+- locate `docs/roadmap-discipline/readiness-checklist.md`, the `features.md` index, and relevant linked ledgers;
 - initialize them when missing;
 - read Recovery State and its `reload` references;
 - inspect minimal Git metadata needed to reconcile recorded partial state.
@@ -26,14 +26,14 @@ If roadmap files are missing:
 1. verify install/start commands;
 2. verify the test/verification framework;
 3. create `readiness-checklist.md` covering Can Start, Can Test, Can See Progress, Can Pick Up Next Steps;
-4. create `features.md` with Phase 0 feature triples;
+4. create the index and a linked Phase 0 ledger with feature entries;
 5. make the next action explicit on disk;
 6. create Recovery State revision 1 before business implementation begins;
 7. create a clean Git checkpoint when project rules allow it.
 
 ## Existing roadmap recovery
 
-1. Read readiness + features from disk.
+1. Read readiness, the index, and the relevant linked ledgers from disk.
 2. If the helper exists, run `resume`; otherwise parse Recovery State manually.
 3. Confirm `active_features`, `focus_feature`, current phase, partial state, verification, blockers, and exact next action.
 4. Load only the canonical paths listed in `reload`, plus anything strictly necessary to validate them.

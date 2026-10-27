@@ -50,7 +50,7 @@ function note(text, name) {
   return body.match(new RegExp(`^\\s*-?\\s*\\*\\*${escaped}:\\*\\*\\s*(.+)$`, 'mi'))?.[1]?.trim() ?? '';
 }
 
-function parseFeatures(text) {
+function parseFeatures(text, source) {
   const lines = text.replaceAll('\r\n', '\n').split('\n');
   const result = [];
   let phase = '';
@@ -66,10 +66,11 @@ function parseFeatures(text) {
       state: f[4].trim(),
       verification: f[5].trim(),
       phase,
+      source,
       behavior: '',
       evidence: '',
     };
-    for (let j = i + 1; j < Math.min(lines.length, i + 7); j++) {
+    for (let j = i + 1; j < lines.length; j++) {
       if (/^\s*-\s*\[[ xX]\]/.test(lines[j]) || /^#{2,3}\s+/.test(lines[j])) break;
       const b = /^\s+-\s+\*Behavior:\*\s*(.*)$/.exec(lines[j]);
       const e = /^\s+-\s+\*Evidence:\*\s*(.*)$/.exec(lines[j]);
@@ -101,11 +102,30 @@ function parseRecovery(text) {
 function readRoadmap(file) {
   const text = readFileSync(file, 'utf8');
   const recovery = parseRecovery(text);
+  // Only links in this section are ledger inputs; other Markdown links are prose.
+  const ledgerSection = section(text, 'Phase Ledgers');
+  const links = [];
+  for (const line of ledgerSection.split(/\r?\n/)) {
+    const match = /^\s*-\s+\[[^\]]+\]\(([^)]+)\)\s*$/.exec(line);
+    if (match) links.push(match[1]); // prose and comments in this section are ignored
+  }
+  const files = [file];
+  const features = parseFeatures(text, file);
+  for (const link of links) {
+    if (link.includes('#') || path.isAbsolute(link) || /^[a-z]+:/i.test(link)) throw new Error(`Invalid phase ledger link: ${link}`);
+    const linked = path.resolve(path.dirname(file), link);
+    const inside = path.relative(path.dirname(file), linked);
+    if (inside === '..' || inside.startsWith(`..${path.sep}`) || path.isAbsolute(inside)) throw new Error(`Phase ledger link escapes the roadmap directory: ${link}`);
+    if (files.includes(linked)) throw new Error(`Duplicate phase ledger link: ${link}`);
+    if (!existsSync(linked)) throw new Error(`Phase ledger not found: ${link}`);
+    files.push(linked);
+    features.push(...parseFeatures(readFileSync(linked, 'utf8'), linked));
+  }
   return {
-    file, text,
+    file, files, text,
     status: bold(text, 'Status'),
     currentPhase: bold(text, 'Current Phase'),
-    features: parseFeatures(text),
+    features,
     recovery: recovery.state,
     recoveryRange: recovery.range,
   };
@@ -139,7 +159,7 @@ function focusCandidate(r) {
     if (found) return found;
   }
   if (actives.length === 1) return actives[0];
-  return r.features.find((f) => samePhase(f.phase, r.currentPhase) && f.state === 'not_started') ?? null;
+  return null;
 }
 function defaultState(r, root) {
   const focus = focusCandidate(r);
@@ -159,10 +179,10 @@ function defaultState(r, root) {
       reason: focus ? `${focus.id} is the selected unfinished feature.` : 'No focus feature could be established from disk.',
     },
     files: [],
-    repository: snapshot(root, [r.file]),
+    repository: snapshot(root, r.files),
     verification: { required: focus?.verification ?? '', last_run: '', status: 'unknown', detail: '' },
     blockers: blocker && blocker.toLowerCase() !== 'none' ? [blocker] : [],
-    reload: [rel(root, r.file)],
+    reload: [...new Set([rel(root, r.file), ...(focus?.source ? [rel(root, focus.source)] : [])])],
   };
 }
 
@@ -216,7 +236,7 @@ function checkpoint(r, root, flags) {
       reason: one(flags, 'why') ?? current.next.reason,
     },
     files: has(flags, 'clear-files') ? [] : fileArgs.length ? fileArgs.map(parseFile) : current.files,
-    repository: snapshot(root, [r.file]),
+    repository: snapshot(root, r.files),
     verification: {
       required: focus?.verification ?? current.verification.required,
       last_run: one(flags, 'verification-command') ?? current.verification.last_run,
@@ -226,8 +246,14 @@ function checkpoint(r, root, flags) {
     blockers: has(flags, 'clear-blockers') ? [] : blockerArgs.length ? blockerArgs : current.blockers,
     reload: has(flags, 'clear-reload') ? [] : reloadArgs.length ? reloadArgs : current.reload,
   };
+  // Keep the focus feature's ledger reloadable unless reload was set explicitly.
+  if (focus?.source && !has(flags, 'clear-reload') && !reloadArgs.length && !next.reload.includes(rel(root, focus.source))) next.reload = [...next.reload, rel(root, focus.source)];
+  const candidate = { ...r, recovery: next };
+  const issues = validate(candidate, root);
+  const errors = issues.filter((issue) => issue.severity === 'error');
+  if (errors.length) throw new Error(`Checkpoint rejected; fix these first: ${errors.map((issue) => issue.message).join(' ')}`);
   writeFileSync(r.file, replaceRecovery(r.text, r.recoveryRange, next).replace(/\s*$/, '\n'), 'utf8');
-  return next;
+  return { state: next, warnings: issues };
 }
 
 function refExists(root, roadmapFile, ref) {
@@ -238,7 +264,11 @@ function refExists(root, roadmapFile, ref) {
 function validate(r, root) {
   const issues = [];
   const add = (severity, message) => issues.push({ severity, message });
+  const ids = new Set();
   for (const f of r.features) {
+    if (ids.has(f.id)) add('error', `Duplicate feature ID: ${f.id}`);
+    ids.add(f.id);
+    if (!f.phase) add('warning', `${f.id} is not under a "### Phase" heading in ${rel(root, f.source)}.`);
     if (!VALID_STATES.has(f.state)) add('error', `${f.id} has invalid state: ${f.state}`);
     if (f.checked && !['passing', 'deferred'].includes(f.state)) add('error', `${f.id} is checked but state is ${f.state}.`);
     if (f.state === 'passing' && (!f.evidence || f.evidence.toLowerCase() === 'none')) add('error', `${f.id} is passing but has no evidence.`);
@@ -253,6 +283,7 @@ function validate(r, root) {
   const actual = actives.map((f) => f.id).sort();
   const recorded = Array.isArray(s.active_features) ? [...s.active_features].sort() : [];
   if (JSON.stringify(actual) !== JSON.stringify(recorded)) add('error', `Recovery active_features [${recorded.join(', ')}] disagree with feature states [${actual.join(', ')}].`);
+  if (actives.length && s.focus_feature === 'None') add('error', 'Active features require a focus_feature.');
   const focus = s.focus_feature === 'None' ? null : r.features.find((f) => f.id === s.focus_feature);
   if (s.focus_feature !== 'None') {
     if (!focus) add('error', `Recovery focus_feature does not exist: ${s.focus_feature}`);
@@ -286,12 +317,13 @@ function renderResume(r, root) {
     return `ROADMAP RECOVERY\n\nFeature list: ${rel(root, r.file)}\nMode: legacy (Recovery State missing)\nPhase: ${r.currentPhase || 'Unknown'}\nCandidate focus: ${focus?.id ?? 'Unknown'}\n\nCreate a structured checkpoint before implementation continues.`;
   }
   const s = r.recovery;
-  const now = snapshot(root, [r.file]);
+  const now = snapshot(root, r.files);
   const drift = [];
   if (s.repository?.head && s.repository.head !== 'Unknown' && now.head !== s.repository.head) drift.push(`HEAD changed: ${s.repository.head} -> ${now.head}`);
   if (s.repository?.dirty_hash && now.dirty_hash !== s.repository.dirty_hash) drift.push('Working-tree state differs from the last checkpoint. Reconcile unrecorded changes before trusting partial-state notes.');
+  const focusFeature = r.features.find((f) => f.id === s.focus_feature);
   const lines = [
-    'ROADMAP RECOVERY', '', `Feature list: ${rel(root, r.file)}`, `Revision: ${s.revision}`, `Phase: ${s.phase}`,
+    'ROADMAP RECOVERY', '', `Feature list: ${rel(root, r.file)}`, ...(focusFeature && focusFeature.source !== r.file ? [`Focus ledger: ${rel(root, focusFeature.source)}`] : []), `Revision: ${s.revision}`, `Phase: ${s.phase}`,
     `Active features: ${(s.active_features ?? []).join(', ') || '(none)'}`, `Focus feature: ${s.focus_feature}`, '',
     'OBJECTIVE', s.goal, '', 'DONE WHEN', s.done_when, '', 'CURRENT STATE',
     `Last completed: ${s.last_completed}`, `In progress: ${s.in_progress}`, '', 'VERIFICATION',
@@ -318,12 +350,9 @@ function main() {
   if (!existsSync(file)) throw new Error(`Feature list not found: ${file}`);
   let roadmap = readRoadmap(file);
   if (command === 'checkpoint') {
-    const state = checkpoint(roadmap, root, flags);
-    roadmap = readRoadmap(file);
-    const issues = validate(roadmap, root);
+    const { state, warnings } = checkpoint(roadmap, root, flags);
     console.log(`Checkpointed ${rel(root, file)} at revision ${state.revision}.`);
-    issues.forEach((i) => console.log(`- ${i.severity.toUpperCase()}: ${i.message}`));
-    if (issues.some((i) => i.severity === 'error')) process.exitCode = 1;
+    warnings.forEach((i) => console.log(`- ${i.severity.toUpperCase()}: ${i.message}`));
     return;
   }
   if (command === 'check') {

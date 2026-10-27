@@ -14,7 +14,39 @@ docs/roadmap-discipline/readiness-checklist.md
 docs/roadmap-discipline/features.md
 ```
 
-`features.md` owns feature/phase state and embeds `## Recovery State` for volatile execution state.
+`features.md` is a compact index with status, current phase, links to feature ledgers, and `## Recovery State`. Keep current recovery information concise: replace superseded details instead of appending a running log. Record only evidence needed to substantiate state; link to existing artifacts for extensive output. Git history provides checkpoint history.
+
+Put feature entries in separate Markdown ledgers under `phases/`, normally one per phase. Split a large phase into several files when useful. In `features.md`, list each ledger exactly once under this heading, using relative links on their own list lines, inside the roadmap directory (other lines in the section are ignored):
+
+```markdown
+## Phase Ledgers
+
+- [Phase 1: Core](phases/phase-1.md)
+- [Phase 2: Integration](phases/phase-2.md)
+```
+
+Each ledger uses `### Phase 1: Core` headings above its feature entries; use the same phase identity as Current Phase. The helper reads all links in this section and also supports feature entries in the index. Do not duplicate feature IDs across files. Keep phase order in the index and feature selection order in the ledgers. Add another ledger rather than letting a file grow without practical bound. Revision checks and the working-tree drift fingerprint cover the index only: ledger files are excluded from the fingerprint, and edits to them do not change `revision`. Read only the index and relevant ledgers during ordinary recovery (`resume` prints the focus feature's ledger); use the helper for whole-roadmap consistency checks.
+
+A minimal index:
+
+````markdown
+# Roadmap
+
+**Status:** In Progress
+**Current Phase:** Phase 1: Core
+
+## Phase Ledgers
+
+- [Phase 1: Core](phases/phase-1.md)
+
+## Recovery State
+
+```json
+{ "version": 1, "revision": 1, "...": "see roadmap-discipline" }
+```
+````
+
+The helper reads the bold `Status` and `Current Phase` fields and the Phase Ledgers links from the index. Finished phases stay in their ledger; mark the phase complete in the ledger heading or feature states rather than deleting entries.
 
 ## Readiness checklist
 
@@ -91,6 +123,8 @@ Checkpoint after:
 9. ending a response/handoff after state changed.
 
 ## Legacy migration
+
+Existing single-file roadmaps remain valid. When next maintained, split a large `features.md` into linked ledgers, preserving feature order, states, evidence, phase headings, and Recovery State. Verify the links and run `check`; the first `checkpoint` of a roadmap without Recovery State needs an explicit `--next`, since the default next action is rejected as vague; do not migrate inactive roadmaps just for formatting. Do not discard history or evidence merely to reduce file size.
 
 If an older roadmap has only Resume Notes:
 
